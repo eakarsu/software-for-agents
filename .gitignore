@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+
+# Build artifacts
+.next/
+dist/
+build/
+out/
+coverage/
+.cache/
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Secrets
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+token.txt
+tokens.txt
+credentials.json
+credentials.yaml
+secrets.json
+secrets.yaml
+*.pem
+*.key
+*.crt
+*.p12
+
+# OS
+.DS_Store
