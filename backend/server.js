@@ -36,3 +36,11 @@ app.use('/api/cf-agent-onboarding', require('./routes/cf-agent-onboarding'));
 app.use('/api/cf-semver-compat', require('./routes/cf-semver-compat'));
 app.use('/api/cf-toolcall-replay', require('./routes/cf-toolcall-replay'));
 app.use('/api/cf-mcp-marketplace', require('./routes/cf-mcp-marketplace'));
+
+// Audit-implementation 2026-05-14: deep features for agent-first infrastructure.
+app.use('/api/mcp-registry', require('./routes/mcp-registry'));
+app.use('/api/agent-identity', require('./routes/agent-identity'));
+app.use('/api/sandbox-dryrun', require('./routes/sandbox-dryrun'));
+app.use('/api/eval-harness', require('./routes/eval-harness'));
+app.use('/api/quota-metering', require('./routes/quota-metering'));
+app.use('/api/publish-as-mcp', require('./routes/publish-as-mcp'));

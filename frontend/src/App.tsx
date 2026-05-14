@@ -11,6 +11,13 @@ import UtilityPage from './pages/UtilityPage';
 import SampleDataPage from './pages/SampleDataPage';
 import Dashboard from './pages/Dashboard';
 import AICenter from './components/AICenter';
+// Audit-implementation 2026-05-14: deep agent-infrastructure features.
+import McpRegistry from './pages/McpRegistry';
+import AgentIdentity from './pages/AgentIdentity';
+import SandboxDryrun from './pages/SandboxDryrun';
+import EvalHarness from './pages/EvalHarness';
+import QuotaMetering from './pages/QuotaMetering';
+import PublishAsMcp from './pages/PublishAsMcp';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('token');
@@ -34,6 +41,13 @@ export default function App() {
           <Route path="utility" element={<UtilityPage />} />
           <Route path="sample-data" element={<SampleDataPage />} />
           <Route path="ai-center" element={<AICenter />} />
+          {/* Audit-implementation 2026-05-14 */}
+          <Route path="mcp-registry" element={<McpRegistry />} />
+          <Route path="agent-identity" element={<AgentIdentity />} />
+          <Route path="sandbox-dryrun" element={<SandboxDryrun />} />
+          <Route path="eval-harness" element={<EvalHarness />} />
+          <Route path="quota-metering" element={<QuotaMetering />} />
+          <Route path="publish-as-mcp" element={<PublishAsMcp />} />
         </Route>
       </Routes>
     </BrowserRouter>
