@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/auth');
+const verifyToken = require("../middleware/auth");
 const pool = require('../db');
 
 // TODO: configure credentials (OPENROUTER_API_KEY) in .env

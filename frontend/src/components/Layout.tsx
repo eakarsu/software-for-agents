@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard } from 'lucide-react';
+import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard, Bot, Play, Trophy, Gauge, UploadCloud, Layers } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -11,6 +11,17 @@ const navItems = [
   { to: '/metrics', icon: BarChart2, label: 'Usage Metrics' },
   { to: '/utility', icon: Settings2, label: 'Utilities' },
   { to: '/sample-data', icon: Database, label: 'Sample Data' },
+];
+
+// Audit-implementation 2026-05-14: deep agent-infrastructure features.
+const agentInfraNav = [
+  { to: '/mcp-registry',    icon: Server,      label: 'MCP Registry' },
+  { to: '/agent-identity',  icon: Bot,         label: 'Agent Identity' },
+  { to: '/sandbox-dryrun',  icon: Play,        label: 'Sandbox · Dry-Run' },
+  { to: '/eval-harness',    icon: Trophy,      label: 'Eval Harness' },
+  { to: '/quota-metering',  icon: Gauge,       label: 'Quota & Metering' },
+  { to: '/publish-as-mcp',  icon: UploadCloud, label: 'Publish as MCP' },
+  { to: '/custom-views',    icon: Layers,      label: 'SFA Views' },
 ];
 
 export default function Layout() {
@@ -68,6 +79,25 @@ export default function Layout() {
               <Sparkles className="w-4 h-4" />
               AI Center
             </NavLink>
+          </div>
+          <div className="pt-4 mt-4 border-t border-gray-800">
+            <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Agent Infra</div>
+            {agentInfraNav.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? 'bg-violet-700 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </NavLink>
+            ))}
           </div>
         </nav>
         <div className="p-4 border-t border-gray-800">

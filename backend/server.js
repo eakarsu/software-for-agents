@@ -36,3 +36,20 @@ app.use('/api/cf-agent-onboarding', require('./routes/cf-agent-onboarding'));
 app.use('/api/cf-semver-compat', require('./routes/cf-semver-compat'));
 app.use('/api/cf-toolcall-replay', require('./routes/cf-toolcall-replay'));
 app.use('/api/cf-mcp-marketplace', require('./routes/cf-mcp-marketplace'));
+
+// Audit-implementation 2026-05-14: deep features for agent-first infrastructure.
+app.use('/api/mcp-registry', require('./routes/mcp-registry'));
+app.use('/api/agent-identity', require('./routes/agent-identity'));
+app.use('/api/sandbox-dryrun', require('./routes/sandbox-dryrun'));
+app.use('/api/eval-harness', require('./routes/eval-harness'));
+app.use('/api/quota-metering', require('./routes/quota-metering'));
+app.use('/api/publish-as-mcp', require('./routes/publish-as-mcp'));
+
+// SFA Custom Views — mounted BEFORE any 404 handler.
+app.use('/api/custom-views', require('./routes/customViews'));
+
+// Health endpoint (kept after custom-views, still before 404).
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'software-for-agents', ts: new Date().toISOString() }));
+
+// 404 catch-all (must remain last).
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found', path: req.originalUrl }));
