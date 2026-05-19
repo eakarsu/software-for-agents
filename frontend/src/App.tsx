@@ -18,6 +18,7 @@ import SandboxDryrun from './pages/SandboxDryrun';
 import EvalHarness from './pages/EvalHarness';
 import QuotaMetering from './pages/QuotaMetering';
 import PublishAsMcp from './pages/PublishAsMcp';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('token');
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="eval-harness" element={<EvalHarness />} />
           <Route path="quota-metering" element={<QuotaMetering />} />
           <Route path="publish-as-mcp" element={<PublishAsMcp />} />
+          <Route path="custom-views" element={<CustomViewsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

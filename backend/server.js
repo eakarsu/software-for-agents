@@ -44,3 +44,12 @@ app.use('/api/sandbox-dryrun', require('./routes/sandbox-dryrun'));
 app.use('/api/eval-harness', require('./routes/eval-harness'));
 app.use('/api/quota-metering', require('./routes/quota-metering'));
 app.use('/api/publish-as-mcp', require('./routes/publish-as-mcp'));
+
+// SFA Custom Views — mounted BEFORE any 404 handler.
+app.use('/api/custom-views', require('./routes/customViews'));
+
+// Health endpoint (kept after custom-views, still before 404).
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'software-for-agents', ts: new Date().toISOString() }));
+
+// 404 catch-all (must remain last).
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found', path: req.originalUrl }));

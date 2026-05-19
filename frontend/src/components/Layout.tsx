@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard, Bot, Play, Trophy, Gauge, UploadCloud } from 'lucide-react';
+import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard, Bot, Play, Trophy, Gauge, UploadCloud, Layers } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,6 +21,7 @@ const agentInfraNav = [
   { to: '/eval-harness',    icon: Trophy,      label: 'Eval Harness' },
   { to: '/quota-metering',  icon: Gauge,       label: 'Quota & Metering' },
   { to: '/publish-as-mcp',  icon: UploadCloud, label: 'Publish as MCP' },
+  { to: '/custom-views',    icon: Layers,      label: 'SFA Views' },
 ];
 
 export default function Layout() {
