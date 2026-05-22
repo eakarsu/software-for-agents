@@ -20,6 +20,16 @@ import QuotaMetering from './pages/QuotaMetering';
 import PublishAsMcp from './pages/PublishAsMcp';
 import CustomViewsPage from './pages/CustomViewsPage';
 
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
+import TimelineView from './pages/TimelineView';
+
+// Apply pass 7 (2026-05-21)
+import WebhooksPage from './pages/WebhooksPage';
+import DiscoveryPage from './pages/DiscoveryPage';
+import AgentCompatMatrix from './pages/AgentCompatMatrix';
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('token');
   return token ? <>{children}</> : <Navigate to="/login" replace />;
@@ -29,6 +39,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Pre-existing public (un-wrapped) routes — kept as-is for
+            backwards-compat. Nav-visible duplicates inside Layout below. */}
+        <Route path="/insights/timeline" element={<TimelineView />} />
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
@@ -50,6 +66,13 @@ export default function App() {
           <Route path="quota-metering" element={<QuotaMetering />} />
           <Route path="publish-as-mcp" element={<PublishAsMcp />} />
           <Route path="custom-views" element={<CustomViewsPage />} />
+          {/* Apply pass 7 (2026-05-21) */}
+          <Route path="webhooks" element={<WebhooksPage />} />
+          <Route path="discovery" element={<DiscoveryPage />} />
+          <Route path="agent-compat" element={<AgentCompatMatrix />} />
+          <Route path="views/timeline" element={<TimelineView />} />
+          <Route path="views/custom-viz" element={<CodexCustomVizFeature />} />
+          <Route path="views/operations" element={<CodexOperationsFeature />} />
         </Route>
       </Routes>
     </BrowserRouter>

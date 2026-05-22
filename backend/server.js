@@ -48,6 +48,31 @@ app.use('/api/publish-as-mcp', require('./routes/publish-as-mcp'));
 // SFA Custom Views — mounted BEFORE any 404 handler.
 app.use('/api/custom-views', require('./routes/customViews'));
 
+// Apply pass 7 (2026-05-21): webhook subscriptions + agent discovery surface.
+// Both mounted BEFORE the 404 handler (which lives at the bottom of this file).
+app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/discovery', require('./routes/discovery'));
+app.use('/api/agent-compat', require('./routes/agentCompatMatrix'));
+
+// Public well-known endpoint so unauthenticated agents can self-onboard.
+// Mirrors a subset of /api/discovery/manifest with zero JWT requirement.
+app.get('/.well-known/agent-manifest.json', (_req, res) => res.json({
+  schema_version: '2026-05-21',
+  name: 'AgentHub — Software for Agents',
+  description: 'Agent-first registry of services, tools, and MCP servers.',
+  base_url: '/api',
+  auth: { type: 'bearer', login: 'POST /api/auth/login' },
+  manifest: '/api/discovery/manifest',
+  endpoints: {
+    list_services: 'GET /api/services',
+    list_tools: 'GET /api/tools',
+    sdk_snippets: 'GET /api/discovery/sdk-snippets',
+    webhooks: 'GET /api/webhooks',
+    sandbox_dryrun: 'POST /api/sandbox-dryrun'
+  },
+  generated_at: new Date().toISOString()
+}));
+
 // Health endpoint (kept after custom-views, still before 404).
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'software-for-agents', ts: new Date().toISOString() }));
 

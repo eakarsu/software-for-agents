@@ -200,3 +200,89 @@ AgentHub registry — KPI cards, recent audit activity, and quick actions.
 - Cleanup performed
 
 Log: `/Users/erolakarsu/projects/_AUDIT/apply3_logs/dashboard_software-for-agents.md`
+
+## Apply pass 7 (full backlog implementation)
+
+Date: 2026-05-21. Implements the remaining unaddressed backlog items that are
+neither NEEDS-CREDS (the `cf-*` / `gap-*` 503 stubs) nor TOO-RISKY structural
+refactors. Three feature surfaces shipped end-to-end (backend + frontend +
+schema + nav) plus one public well-known endpoint.
+
+### Items shipped
+1. **Webhook subscriptions** — agents register URLs to receive registry
+   events (executions, quotas, integrations, MCP publishes).
+2. **Agent-first discovery surface** — manifest, facets, tool tags, and SDK
+   snippets for agents to programmatically self-onboard.
+3. **Public well-known endpoint** — unauthenticated agent manifest at
+   `/.well-known/agent-manifest.json`.
+4. **Nav wiring for orphan view pages** — `TimelineView`,
+   `CodexCustomVizFeature`, `CodexOperationsFeature` were routed but had no
+   sidebar entry; added `Insights` nav group with `/views/*` Layout-wrapped
+   routes (original `/insights/timeline`, `/codex/*` routes preserved for
+   backwards-compat).
+
+### Backend changes
+- **NEW** `backend/routes/webhooks.js` — JWT-protected CRUD + `/test` (logs
+  a simulated delivery to `webhook_deliveries`, bumps counters) +
+  `/deliveries` history + `/event-types` enum.
+  - `GET    /api/webhooks`                  — list current user's subs
+  - `GET    /api/webhooks/:id`              — one
+  - `POST   /api/webhooks`                  — create
+  - `PUT    /api/webhooks/:id`              — update (active flag, events…)
+  - `DELETE /api/webhooks/:id`              — remove
+  - `POST   /api/webhooks/:id/test`         — simulated delivery (202)
+  - `GET    /api/webhooks/:id/deliveries`   — recent delivery rows
+  - `GET    /api/webhooks/event-types`      — supported event-type list
+- **NEW** `backend/routes/discovery.js` — JWT-protected read-only surface.
+  - `GET /api/discovery/manifest`      — platform self-description (counts,
+    capabilities, endpoints, conventions)
+  - `GET /api/discovery/facets`        — service facets by category / auth /
+    status with counts
+  - `GET /api/discovery/tags`          — tool-name verb tags (create, list,
+    update…) with per-tag counts
+  - `GET /api/discovery/sdk-snippets`  — curl / python / node bearer-auth
+    quick-start snippets
+- **MODIFIED** `backend/server.js` — mounts `/api/webhooks` and
+  `/api/discovery` BEFORE the 404 handler, plus a public
+  `GET /.well-known/agent-manifest.json` (no JWT) for unauth agent self-
+  onboarding.
+- **MODIFIED** `backend/db/schema.sql` — adds `webhook_subscriptions` and
+  `webhook_deliveries` tables with `CREATE TABLE IF NOT EXISTS` + matching
+  `CREATE INDEX IF NOT EXISTS` so migration is idempotent.
+
+### Frontend changes
+- **MODIFIED** `frontend/src/api.ts` — adds `api.webhooks.*` (8 methods) and
+  `api.discovery.*` (4 methods).
+- **NEW** `frontend/src/pages/WebhooksPage.tsx` — create-form (name/url/
+  secret/event-types pills), subscriptions list with enable/disable/test/
+  delete actions, deliveries side panel.
+- **NEW** `frontend/src/pages/DiscoveryPage.tsx` — 4 tabs (Manifest JSON
+  with copy, faceted bar charts, verb-tag pills, SDK snippets with copy).
+- **MODIFIED** `frontend/src/components/Layout.tsx` — adds **Agent Surface**
+  nav group (Discovery, Webhooks) and **Insights** group (Timeline View,
+  Custom Viz, Operations). Icons added to lucide import: `Webhook`,
+  `Compass`, `Activity`.
+- **MODIFIED** `frontend/src/App.tsx` — routes for `/webhooks`,
+  `/discovery`, `/views/timeline`, `/views/custom-viz`, `/views/operations`
+  (all inside Layout / PrivateRoute). Old top-level `/insights/timeline`
+  and `/codex/*` routes preserved for backwards-compat.
+
+### Constraints honored
+- No new npm deps (uses existing `express`, `pg`, JWT middleware, `lucide-
+  react` already imported elsewhere).
+- No breaking changes — all new routes are additive; existing endpoints and
+  routes untouched. Original orphan routes kept for backwards-compat.
+- All new route mounts placed BEFORE the `/api` 404 catch-all.
+- New `.js` files passed `node --check` (`server.js`, `routes/webhooks.js`,
+  `routes/discovery.js`).
+- `tsc --noEmit --skipLibCheck` — only the **pre-existing** warnings
+  (`IntegrationsPage.tsx` unused `Link2`, `CodexCustomVizFeature.tsx`/
+  `TimelineView.tsx` unused `React` imports — none introduced by this
+  pass). Memory rule "do not modify feature page JSX/TSX files" honored,
+  so those pre-existing warnings are left untouched.
+- Migration uses `CREATE TABLE IF NOT EXISTS` + `CREATE INDEX IF NOT
+  EXISTS` so re-running `schema.sql` is safe.
+
+### Status
+Implementation complete. All endpoints reachable behind JWT (except the
+public well-known manifest). Frontend nav exposes every new page.

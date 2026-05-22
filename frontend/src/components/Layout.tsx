@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard, Bot, Play, Trophy, Gauge, UploadCloud, Layers } from 'lucide-react';
+import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard, Bot, Play, Trophy, Gauge, UploadCloud, Layers, Webhook, Compass, Activity, GitCompare } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -22,6 +22,18 @@ const agentInfraNav = [
   { to: '/quota-metering',  icon: Gauge,       label: 'Quota & Metering' },
   { to: '/publish-as-mcp',  icon: UploadCloud, label: 'Publish as MCP' },
   { to: '/custom-views',    icon: Layers,      label: 'SFA Views' },
+];
+
+// Apply pass 7 (2026-05-21): agent-first discovery + webhooks + insights nav.
+const agentSurfaceNav = [
+  { to: '/discovery', icon: Compass, label: 'Discovery' },
+  { to: '/agent-compat', icon: GitCompare, label: 'Agent Compat' },
+  { to: '/webhooks',  icon: Webhook, label: 'Webhooks' },
+];
+const insightsNav = [
+  { to: '/views/timeline',   icon: Activity,  label: 'Timeline View' },
+  { to: '/views/custom-viz', icon: BarChart2, label: 'Custom Viz' },
+  { to: '/views/operations', icon: Layers,    label: 'Operations' },
 ];
 
 export default function Layout() {
@@ -83,6 +95,45 @@ export default function Layout() {
           <div className="pt-4 mt-4 border-t border-gray-800">
             <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Agent Infra</div>
             {agentInfraNav.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? 'bg-violet-700 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </NavLink>
+            ))}
+          </div>
+          {/* Apply pass 7 (2026-05-21) */}
+          <div className="pt-4 mt-4 border-t border-gray-800">
+            <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Agent Surface</div>
+            {agentSurfaceNav.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? 'bg-violet-700 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </NavLink>
+            ))}
+          </div>
+          <div className="pt-4 mt-4 border-t border-gray-800">
+            <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Insights</div>
+            {insightsNav.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
                 to={to}

@@ -277,3 +277,39 @@ CREATE TABLE IF NOT EXISTS agent_oauth_grants (
   expires_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- ============================================================================
+-- Apply pass 7 (2026-05-21): webhook subscriptions + delivery log.
+-- Lets agents register URLs to receive event notifications (tool runs, quota
+-- breaches, integration changes). Backbone for asynchronous agent workflows.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  agent_id INT REFERENCES agents(id) ON DELETE SET NULL,
+  name VARCHAR(255) NOT NULL,
+  url VARCHAR(500) NOT NULL,
+  event_types TEXT,                             -- JSON array: ["execution.completed","quota.exceeded",...]
+  secret_preview VARCHAR(40),                   -- last 8 chars of HMAC secret (display only)
+  active BOOLEAN DEFAULT TRUE,
+  delivery_count INTEGER DEFAULT 0,
+  failure_count INTEGER DEFAULT 0,
+  last_delivery_at TIMESTAMP,
+  last_status_code INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_webhook_subs_active ON webhook_subscriptions(active);
+CREATE INDEX IF NOT EXISTS idx_webhook_subs_user ON webhook_subscriptions(user_id);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id SERIAL PRIMARY KEY,
+  subscription_id INT REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+  event_type VARCHAR(80),
+  payload TEXT,                                 -- JSON
+  status_code INTEGER,
+  response_preview TEXT,
+  duration_ms INTEGER,
+  delivered_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_sub ON webhook_deliveries(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_delivered ON webhook_deliveries(delivered_at DESC);

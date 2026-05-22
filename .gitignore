@@ -37,3 +37,12 @@ secrets.yaml
 
 # OS
 .DS_Store
+
+# --- secrets (auto-added) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+**/credentials*.json
+**/serviceAccount*.json

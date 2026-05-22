@@ -122,5 +122,26 @@ export const api = {
   },
   dashboard: {
     stats: () => apiFetch('/dashboard/stats')
+  },
+  // Apply pass 7 (2026-05-21): webhook subscriptions for agents.
+  webhooks: {
+    eventTypes: () => apiFetch('/webhooks/event-types'),
+    list: () => apiFetch('/webhooks'),
+    get: (id: number) => apiFetch(`/webhooks/${id}`),
+    create: (data: { name: string; url: string; event_types?: string[]; secret?: string; active?: boolean }) =>
+      apiFetch('/webhooks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: object) =>
+      apiFetch(`/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: number) => apiFetch(`/webhooks/${id}`, { method: 'DELETE' }),
+    test: (id: number, data?: { event_type?: string; sample?: object }) =>
+      apiFetch(`/webhooks/${id}/test`, { method: 'POST', body: JSON.stringify(data || {}) }),
+    deliveries: (id: number, limit = 50) => apiFetch(`/webhooks/${id}/deliveries?limit=${limit}`)
+  },
+  // Apply pass 7 (2026-05-21): agent-first discovery surface.
+  discovery: {
+    manifest: () => apiFetch('/discovery/manifest'),
+    facets: () => apiFetch('/discovery/facets'),
+    tags: () => apiFetch('/discovery/tags'),
+    sdkSnippets: () => apiFetch('/discovery/sdk-snippets')
   }
 };
