@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Link2, CheckCircle, PauseCircle } from 'lucide-react';
+import { Plus, Search, CheckCircle, PauseCircle } from 'lucide-react';
 import { api } from '../api';
 import type { Integration, Service } from '../types';
 

@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated dependency and frontend build artifacts"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+]

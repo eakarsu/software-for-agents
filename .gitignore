@@ -46,6 +46,8 @@ secrets.yaml
 *.key
 **/credentials*.json
 **/serviceAccount*.json
+!.env.example
+!.env.example
 
 # --- secrets: never commit ---
 .env
@@ -60,3 +62,4 @@ token.txt
 id_rsa*
 **/credentials*.json
 **/serviceAccount*.json
+!.env.example

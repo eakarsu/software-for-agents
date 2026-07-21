@@ -1,178 +1,51 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Zap, Server, Wrench, Link2, PlayCircle, BookOpen, BarChart2, Sparkles, LogOut, Settings2, Database, LayoutDashboard, Bot, Play, Trophy, Gauge, UploadCloud, Layers, Webhook, Compass, Activity, GitCompare } from 'lucide-react';
+import { Bot, LogOut, Zap } from 'lucide-react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
-const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/services', icon: Server, label: 'Services' },
-  { to: '/tools', icon: Wrench, label: 'Tools' },
-  { to: '/integrations', icon: Link2, label: 'Integrations' },
-  { to: '/executions', icon: PlayCircle, label: 'Executions' },
-  { to: '/documentation', icon: BookOpen, label: 'Documentation' },
-  { to: '/metrics', icon: BarChart2, label: 'Usage Metrics' },
-  { to: '/utility', icon: Settings2, label: 'Utilities' },
-  { to: '/sample-data', icon: Database, label: 'Sample Data' },
-];
-
-// Audit-implementation 2026-05-14: deep agent-infrastructure features.
-const agentInfraNav = [
-  { to: '/mcp-registry',    icon: Server,      label: 'MCP Registry' },
-  { to: '/agent-identity',  icon: Bot,         label: 'Agent Identity' },
-  { to: '/sandbox-dryrun',  icon: Play,        label: 'Sandbox · Dry-Run' },
-  { to: '/eval-harness',    icon: Trophy,      label: 'Eval Harness' },
-  { to: '/quota-metering',  icon: Gauge,       label: 'Quota & Metering' },
-  { to: '/publish-as-mcp',  icon: UploadCloud, label: 'Publish as MCP' },
-  { to: '/custom-views',    icon: Layers,      label: 'SFA Views' },
-];
-
-// Apply pass 7 (2026-05-21): agent-first discovery + webhooks + insights nav.
-const agentSurfaceNav = [
-  { to: '/discovery', icon: Compass, label: 'Discovery' },
-  { to: '/agent-compat', icon: GitCompare, label: 'Agent Compat' },
-  { to: '/webhooks',  icon: Webhook, label: 'Webhooks' },
-];
-const insightsNav = [
-  { to: '/views/timeline',   icon: Activity,  label: 'Timeline View' },
-  { to: '/views/custom-viz', icon: BarChart2, label: 'Custom Viz' },
-  { to: '/views/operations', icon: Layers,    label: 'Operations' },
-];
+type Tenant = { id: string; name: string; role: string };
 
 export default function Layout() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const tenants: Tenant[] = user.tenants || [];
+  const tenantId = localStorage.getItem('tenantId') || '';
 
-  const handleLogout = () => {
+  const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('tenantId');
     navigate('/login');
   };
 
   return (
-    <div className="flex h-screen bg-gray-950">
-      <aside className="w-64 bg-gray-900 flex flex-col border-r border-gray-800">
-        <div className="p-6 border-b border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="font-bold text-white">AgentHub</div>
-              <div className="text-xs text-gray-400">Services Registry</div>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-gray-950 text-gray-100">
+      <aside className="w-64 border-r border-gray-800 bg-gray-900 p-5">
+        <div className="flex items-center gap-3 border-b border-gray-800 pb-5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600"><Zap size={18} /></span>
+          <div><div className="font-semibold">AgentHub</div><div className="text-xs text-gray-400">Grounded operations</div></div>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-violet-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`
-              }
+        {tenants.length > 0 && (
+          <label className="mt-5 block text-xs text-gray-400">
+            Tenant
+            <select
+              value={tenantId}
+              onChange={(event) => { localStorage.setItem('tenantId', event.target.value); window.location.reload(); }}
+              className="mt-2 w-full rounded border border-gray-700 bg-gray-800 p-2 text-sm text-white"
             >
-              <Icon className="w-4 h-4" />
-              {label}
-            </NavLink>
-          ))}
-          <div className="pt-4 mt-4 border-t border-gray-800">
-            <NavLink
-              to="/ai-center"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white'
-                    : 'text-violet-400 hover:text-white hover:bg-gray-800'
-                }`
-              }
-            >
-              <Sparkles className="w-4 h-4" />
-              AI Center
-            </NavLink>
-          </div>
-          <div className="pt-4 mt-4 border-t border-gray-800">
-            <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Agent Infra</div>
-            {agentInfraNav.map(({ to, icon: Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'bg-violet-700 text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`
-                }
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </NavLink>
-            ))}
-          </div>
-          {/* Apply pass 7 (2026-05-21) */}
-          <div className="pt-4 mt-4 border-t border-gray-800">
-            <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Agent Surface</div>
-            {agentSurfaceNav.map(({ to, icon: Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'bg-violet-700 text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`
-                }
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </NavLink>
-            ))}
-          </div>
-          <div className="pt-4 mt-4 border-t border-gray-800">
-            <div className="px-3 mb-2 text-[10px] uppercase tracking-wider text-gray-500">Insights</div>
-            {insightsNav.map(({ to, icon: Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'bg-violet-700 text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`
-                }
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </NavLink>
-            ))}
-          </div>
+              {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name} · {tenant.role}</option>)}
+            </select>
+          </label>
+        )}
+        <nav className="mt-5">
+          <NavLink to="/workflow" className="flex items-center gap-2 rounded-lg bg-violet-700 px-3 py-2 text-sm">
+            <Bot size={16} /> Agent workflow
+          </NavLink>
         </nav>
-        <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-white text-sm font-medium">
-              {user.name?.[0] || 'A'}
-            </div>
-            <div>
-              <div className="text-sm font-medium text-white">{user.name || 'Admin'}</div>
-              <div className="text-xs text-gray-400">{user.role || 'admin'}</div>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-gray-400 hover:text-white text-sm transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign out
-          </button>
+        <div className="mt-8 border-t border-gray-800 pt-4 text-sm">
+          <div className="text-gray-200">{user.name || user.email}</div>
+          <button onClick={logout} className="mt-3 flex items-center gap-2 text-gray-400 hover:text-white"><LogOut size={15} /> Sign out</button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto bg-gray-950">
-        <Outlet />
-      </main>
+      <main className="min-w-0 flex-1"><Outlet /></main>
     </div>
   );
 }

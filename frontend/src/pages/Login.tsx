@@ -18,20 +18,13 @@ export default function Login() {
       const data = await api.login(email, password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      if (data.user.tenants?.[0]?.id) localStorage.setItem('tenantId', data.user.tenants[0].id);
       navigate('/');
     } catch {
       setError('Invalid credentials');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemo = () => {
-    setEmail('admin@demo.com');
-    setPassword('demo123');
-    setTimeout(() => {
-      document.getElementById('login-form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    }, 100);
   };
 
   return (
@@ -77,12 +70,7 @@ export default function Login() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-          <button
-            onClick={handleDemo}
-            className="mt-3 w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors border border-gray-700"
-          >
-            Demo Login
-          </button>
+          <p className="mt-4 text-xs text-gray-500">Accounts and tenant membership are provisioned by an administrator.</p>
         </div>
       </div>
     </div>

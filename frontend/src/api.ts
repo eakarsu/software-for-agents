@@ -2,14 +2,19 @@ const BASE = '/api';
 
 function headers() {
   const token = localStorage.getItem('token');
+  const tenantId = localStorage.getItem('tenantId');
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(tenantId ? { 'X-Tenant-ID': tenantId } : {})
   };
 }
 
 export async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${BASE}${path}`, { ...options, headers: headers() });
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: { ...headers(), ...(options?.headers || {}) }
+  });
   if (!res.ok) {
     let msg = `API error: ${res.status}`;
     try {
@@ -39,6 +44,24 @@ export async function apiDownload(path: string, filename: string) {
 export const api = {
   login: (email: string, password: string) =>
     apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  workflow: {
+    createTenant: (name: string) =>
+      apiFetch('/agent-workflow/tenants', { method: 'POST', body: JSON.stringify({ name }) }),
+    connectors: () => apiFetch('/agent-workflow/connectors'),
+    createConnector: (data: object) =>
+      apiFetch('/agent-workflow/connectors', { method: 'POST', body: JSON.stringify(data) }),
+    ask: (data: object, idempotencyKey: string) =>
+      apiFetch('/agent-workflow/runs', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(data)
+      }),
+    getRun: (id: string) => apiFetch(`/agent-workflow/runs/${id}`),
+    decideJob: (id: string, decision: 'approve' | 'reject', note: string) =>
+      apiFetch(`/agent-workflow/jobs/${id}/decision`, {
+        method: 'POST', body: JSON.stringify({ decision, note })
+      })
+  },
   services: {
     list: () => apiFetch('/services'),
     get: (id: number) => apiFetch(`/services/${id}`),
