@@ -22,38 +22,15 @@ async function provisionAdmin(options = {}) {
   const ownsPool = !options.pool;
   const pool = options.pool || new Pool({ connectionString, max: 1 });
   try {
-    let existing = await pool.query(
-      'SELECT id, email, password_hash, name, role FROM users WHERE lower(email) = lower($1)',
-      [email]
-    );
-    if (existing.rows[0]) {
-      const user = existing.rows[0];
-      const matches = await bcrypt.compare(password, user.password_hash);
-      if (!matches || user.role !== 'admin') {
-        throw new Error('The requested administrator already exists with different credentials or role');
-      }
-      return { id: user.id, email: user.email, created: false };
-    }
-
     const passwordHash = await bcrypt.hash(password, 12);
     const inserted = await pool.query(
       `INSERT INTO users (email, password_hash, name, role)
        VALUES ($1, $2, $3, 'admin')
-       ON CONFLICT (email) DO NOTHING
-       RETURNING id, email`,
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, name = EXCLUDED.name, role = 'admin'
+       RETURNING id, email, (xmax = 0) AS created`,
       [email, passwordHash, name]
     );
-    if (inserted.rows[0]) return { ...inserted.rows[0], created: true };
-
-    existing = await pool.query(
-      'SELECT id, email, password_hash, role FROM users WHERE lower(email) = lower($1)',
-      [email]
-    );
-    const user = existing.rows[0];
-    if (!user || user.role !== 'admin' || !(await bcrypt.compare(password, user.password_hash))) {
-      throw new Error('Administrator provisioning conflicted with an existing account');
-    }
-    return { id: user.id, email: user.email, created: false };
+    return inserted.rows[0];
   } finally {
     if (ownsPool) await pool.end();
   }

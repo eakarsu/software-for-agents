@@ -3,6 +3,7 @@ const cors = require('cors');
 const { createNonAppBoundary } = require('./routes/non-app-boundary');
 const { createAuthRouter } = require('./routes/auth');
 const { createAgentWorkflowRouter } = require('./routes/agent-workflow');
+const { createRuntimeAiRouter } = require('./routes/runtime-ai');
 
 function validateRuntimeConfig() {
   const missing = [];
@@ -32,6 +33,7 @@ function createApp(options = {}) {
   app.use(express.json({ limit: '1mb', strict: true }));
 
   app.use('/api/auth', createAuthRouter(pool));
+  app.use('/api/runtime-ai', createRuntimeAiRouter(pool));
   app.use('/api/agent-workflow', options.workflowRouter || createAgentWorkflowRouter({
     pool,
     modelClient: options.modelClient
