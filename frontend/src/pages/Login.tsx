@@ -64,13 +64,14 @@ export default function Login() {
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="button"
-              onClick={() => { setEmail(import.meta.env.VITE_DEMO_EMAIL || ''); setPassword(import.meta.env.VITE_DEMO_PASSWORD || ''); }}
-              disabled={!import.meta.env.VITE_DEMO_EMAIL || !import.meta.env.VITE_DEMO_PASSWORD}
-              aria-label="Auto Fill Demo Credentials"
+              onClick={() => { setEmail(import.meta.env.VITE_DEMO_EMAIL || ''); setPassword(import.meta.env.VITE_DEMO_PASSWORD || ''); setError(''); }}
+              disabled={import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL !== 'true' || !import.meta.env.VITE_DEMO_EMAIL || !import.meta.env.VITE_DEMO_PASSWORD}
+              aria-label="Fill demo credentials"
               style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
             >
-              Auto Fill Demo Credentials
+              Fill demo credentials
             </button>
+            {(import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL !== 'true' || !import.meta.env.VITE_DEMO_EMAIL || !import.meta.env.VITE_DEMO_PASSWORD) && <p className="text-xs text-gray-400">Demo credentials are not configured for this session.</p>}
             <button
               type="submit"
               disabled={loading}

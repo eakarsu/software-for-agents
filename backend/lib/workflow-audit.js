@@ -50,11 +50,15 @@ async function appendAudit(client, event) {
   return { id, sequence, previousHash, eventHash, createdAt };
 }
 
-async function withTransaction(pool, fn) {
+async function withTransaction(pool, fn, signal) {
+  signal?.throwIfAborted();
   const client = await pool.connect();
   try {
+    signal?.throwIfAborted();
     await client.query('BEGIN');
+    signal?.throwIfAborted();
     const result = await fn(client);
+    signal?.throwIfAborted();
     await client.query('COMMIT');
     return result;
   } catch (error) {

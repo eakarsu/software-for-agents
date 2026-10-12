@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
+import AIStudio from './pages/AIStudio';
 import Login from './pages/Login';
 import AgentWorkflowPage from './pages/AgentWorkflowPage';
 
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Navigate to="/workflow" replace />} />
           <Route path="workflow" element={<AgentWorkflowPage />} />
+          <Route path="ai-studio" element={<AIStudio />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -275,8 +275,8 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
     });
   }
 
-  async function hydrateRun(actor, runId) {
-    const result = await pool.query(
+  async function hydrateRun(actor, runId, client = pool, owned = false) {
+    const result = await client.query(
       `SELECT r.*,
               COALESCE(json_agg(DISTINCT jsonb_build_object(
                 'documentId', c.document_id, 'quote', c.quote, 'sourceUrl', c.source_url
@@ -288,16 +288,85 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
          FROM agent_runs r
          LEFT JOIN agent_citations c ON c.run_id = r.id
          LEFT JOIN tool_jobs j ON j.run_id = r.id
-        WHERE r.id = $1 AND r.tenant_id = $2
+        WHERE r.id = $1 AND r.tenant_id = $2 AND ($3::boolean = FALSE OR r.user_id = $4)
         GROUP BY r.id`,
-      [runId, actor.tenantId]
+      [runId, actor.tenantId, owned, actor.userId]
     );
     if (!result.rows[0]) throw new WorkflowError('RUN_NOT_FOUND', 'Agent run not found', 404, false);
     return result.rows[0];
   }
 
-  async function startRun(actor, idempotencyKey, inputHash, question, budgets) {
+  async function freshActor(client, actor) {
+    const current = await client.query(
+      `SELECT tm.role FROM tenant_members tm JOIN tenants t ON t.id=tm.tenant_id JOIN users u ON u.id=tm.user_id
+       WHERE tm.tenant_id=$1 AND tm.user_id=$2 AND t.status='active' FOR SHARE OF tm,t,u`,
+      [actor.tenantId, actor.userId]
+    );
+    if (!current.rows[0] || current.rows[0].role !== actor.role) throw new WorkflowError('AUTHORIZATION_CHANGED', 'Tenant authorization changed. Start a new request.', 403, false);
+  }
+
+  async function listRuns(actor) {
+    requireRole(actor, ROLES);
+    return withTransaction(pool, async client => {
+      await freshActor(client, actor);
+      const result = await client.query(
+        'SELECT id,question,status,model_id,created_at,completed_at,error_code FROM agent_runs WHERE tenant_id=$1 AND user_id=$2 ORDER BY created_at DESC,id DESC LIMIT 50',
+        [actor.tenantId, actor.userId]
+      );
+      return result.rows;
+    });
+  }
+
+  async function getRun(actor, runId) {
+    requireRole(actor, ROLES);
+    return withTransaction(pool, async client => {
+      await freshActor(client, actor);
+      return hydrateRun(actor, runId, client, true);
+    });
+  }
+
+  async function freshEvidence(client, actor, documents, maxStalenessMinutes) {
+    await freshActor(client, actor);
+    const visible = await client.query(
+      `SELECT d.id,d.content_hash FROM knowledge_documents d JOIN knowledge_connectors c ON c.id=d.connector_id
+       WHERE d.id=ANY($1::uuid[]) AND d.tenant_id=$2 AND d.deleted_at IS NULL AND c.status='active'
+       AND $3=ANY(d.allowed_roles) AND c.last_synced_at >= NOW()-($4::text||' minutes')::interval FOR SHARE OF d,c`,
+      [documents.map(document => document.id), actor.tenantId, actor.role, maxStalenessMinutes]
+    );
+    if (visible.rows.length !== documents.length || documents.some(document => !visible.rows.some(current => current.id === document.id && current.content_hash === document.content_hash))) {
+      throw new WorkflowError('CONTEXT_CHANGED', 'The retrieved evidence changed or is no longer visible. Start a new request.', 403, false);
+    }
+  }
+
+  async function cancelRun(actor, runId) {
+    if (!runId) return;
+    await withTransaction(pool, async client => {
+      const cancelled = await client.query(
+        `UPDATE agent_runs SET status='rejected', error_code='RUN_CANCELLED', completed_at=NOW()
+         WHERE id=$1 AND tenant_id=$2 AND user_id=$3 AND status='running' RETURNING id`,
+        [runId, actor.tenantId, actor.userId]
+      );
+      if (!cancelled.rows.length) return;
+      await appendAudit(client, { tenantId: actor.tenantId, actorType: 'user', actorId: actor.userId, eventType: 'agent_run.cancelled', entityType: 'agent_run', entityId: runId, data: { errorCode: 'RUN_CANCELLED' } });
+    });
+  }
+
+  async function failRun(actor, runId, code) {
+    if (!runId) return;
+    await withTransaction(pool, async client => {
+      const failed = await client.query(
+        `UPDATE agent_runs SET status='rejected', error_code=$4, completed_at=NOW()
+         WHERE id=$1 AND tenant_id=$2 AND user_id=$3 AND status='running' RETURNING id`,
+        [runId, actor.tenantId, actor.userId, String(code || 'WORKFLOW_FAILED').slice(0, 80)]
+      );
+      if (!failed.rows.length) return;
+      await appendAudit(client, { tenantId: actor.tenantId, actorType: 'system', eventType: 'agent_run.failed', entityType: 'agent_run', entityId: runId, data: { errorCode: String(code || 'WORKFLOW_FAILED').slice(0, 80) } });
+    });
+  }
+
+  async function startRun(actor, idempotencyKey, inputHash, question, budgets, signal) {
     return withTransaction(pool, async (client) => {
+      await freshActor(client, actor);
       const existing = await client.query(
         'SELECT id, input_hash FROM agent_runs WHERE tenant_id = $1 AND user_id = $2 AND idempotency_key = $3 FOR UPDATE',
         [actor.tenantId, actor.userId, idempotencyKey]
@@ -338,10 +407,10 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
         data: { latencyBudgetMs: budgets.latencyMs, costBudgetUsd: budgets.costUsd }
       });
       return { runId };
-    });
+    }, signal);
   }
 
-  async function rejectRun(actor, runId, code, providerOutput, providerError) {
+  async function rejectRun(actor, runId, code, providerOutput, providerError, signal) {
     await withTransaction(pool, async (client) => {
       await client.query(
         `UPDATE agent_runs SET status = 'rejected', schema_valid = FALSE, error_code = $2,
@@ -356,10 +425,11 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
         entityId: runId,
         data: { errorCode: code, outputHash: providerOutput ? sha256(stableJson(providerOutput)) : null }
       });
-    });
+    }, signal);
   }
 
-  async function ask(actor, { idempotencyKey, question, allowAction = false, latencyBudgetMs, costBudgetUsd }) {
+  async function ask(actor, { idempotencyKey, question, allowAction = false, latencyBudgetMs, costBudgetUsd, signal }) {
+    signal?.throwIfAborted();
     requireRole(actor, ROLES);
     requireIdempotencyKey(idempotencyKey);
     const normalizedQuestion = String(question || '').trim();
@@ -371,9 +441,12 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
       costUsd: parsePositiveNumber(costBudgetUsd, process.env.AGENT_COST_BUDGET_USD || 0.05, 0.000001, 10)
     };
     const inputHash = sha256(stableJson({ question: normalizedQuestion, allowAction: !!allowAction, budgets }));
-    const started = await startRun(actor, idempotencyKey, inputHash, normalizedQuestion, budgets);
+    let runId;
+    try {
+    const started = await startRun(actor, idempotencyKey, inputHash, normalizedQuestion, budgets, signal);
+    runId = started.runId;
+    signal?.throwIfAborted();
     if (started.replayId) return { ...(await hydrateRun(actor, started.replayId)), replayed: true };
-    const runId = started.runId;
 
     const maxStalenessMinutes = Math.floor(parsePositiveNumber(process.env.SOURCE_MAX_STALENESS_MINUTES, 1440, 1, 525600));
     const retrieved = await pool.query(
@@ -398,13 +471,16 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
         LIMIT 8`,
       [actor.tenantId, normalizedQuestion, actor.role, maxStalenessMinutes]
     );
+    signal?.throwIfAborted();
     const documents = retrieved.rows;
     if (!documents.length) {
-      await rejectRun(actor, runId, 'NO_FRESH_GROUNDED_CONTEXT');
+      await rejectRun(actor, runId, 'NO_FRESH_GROUNDED_CONTEXT', null, null, signal);
       throw new WorkflowError('NO_FRESH_GROUNDED_CONTEXT', 'No fresh source visible to this tenant role matched the question', 422, false);
     }
     await pool.query('UPDATE agent_runs SET retrieved_document_ids = $2 WHERE id = $1', [runId, documents.map((document) => document.id)]);
 
+    await withTransaction(pool, client => freshEvidence(client, actor, documents, maxStalenessMinutes), signal);
+    signal?.throwIfAborted();
     let provider;
     try {
       provider = await modelClient.answer({
@@ -412,9 +488,11 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
         documents,
         timeoutMs: budgets.latencyMs,
         requestId: runId,
-        allowAction
+        allowAction,
+        signal
       });
     } catch (error) {
+      signal?.throwIfAborted();
       const providerError = String(error.details?.rawPreview || error.message || '').slice(0, 2000);
       await withTransaction(pool, async (client) => {
         await client.query(
@@ -430,15 +508,16 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
           entityId: runId,
           data: { errorCode: error.code || 'MODEL_PROVIDER_FAILED' }
         });
-      });
+      }, signal);
       throw error;
     }
 
+    signal?.throwIfAborted();
     let provenance;
     try {
       provenance = validateModelOutput(provider.output, documents, actor, !!allowAction);
     } catch (error) {
-      await rejectRun(actor, runId, error.code, provider.output, error.message);
+      await rejectRun(actor, runId, error.code, provider.output, error.message, signal);
       throw error;
     }
     if (provider.latencyMs > budgets.latencyMs || provider.costUsd > budgets.costUsd) {
@@ -458,11 +537,13 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
           entityId: runId,
           data: { latencyMs: provider.latencyMs, costUsd: provider.costUsd, outputHash: sha256(stableJson(provider.output)) }
         });
-      });
+      }, signal);
       throw new WorkflowError('BUDGET_EXCEEDED', 'The model response exceeded the configured latency or cost budget', 422, false);
     }
 
     await withTransaction(pool, async (client) => {
+      await freshEvidence(client, actor, documents, maxStalenessMinutes);
+      signal?.throwIfAborted();
       await client.query(
         `UPDATE agent_runs SET status = 'completed', model_id = $2, answer = $3, provider_output = $3,
           schema_valid = TRUE, citation_coverage = $4, latency_ms = $5, prompt_tokens = $6,
@@ -507,8 +588,17 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
           outputHash: sha256(stableJson(provider.output))
         }
       });
-    });
+    }, signal);
+    signal?.throwIfAborted();
     return { ...(await hydrateRun(actor, runId)), replayed: false };
+    } catch (error) {
+      if (signal?.aborted) {
+        await cancelRun(actor, runId);
+        throw signal.reason || new WorkflowError('RUN_CANCELLED', 'Agent request cancelled', 499, false);
+      }
+      await failRun(actor, runId, error.code).catch(() => {});
+      throw error;
+    }
   }
 
   async function approveJob(actor, jobId, { decision, note }) {
@@ -521,6 +611,7 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
       );
       const job = current.rows[0];
       if (!job) throw new WorkflowError('JOB_NOT_FOUND', 'Tool job not found', 404, false);
+      await freshActor(client, actor);
       if (job.status !== 'pending_approval') throw new WorkflowError('INVALID_JOB_STATE', 'Tool job is not awaiting approval', 409, false);
       if (Number(job.created_by) === Number(actor.userId)) {
         throw new WorkflowError('SEPARATION_OF_DUTIES', 'The job creator cannot approve their own action', 403, false);
@@ -627,10 +718,11 @@ function createWorkflowService({ pool, modelClient, now = () => new Date(), uuid
     createConnector,
     ingest,
     ask,
+    listRuns,
     approveJob,
     createEvalCase,
     evaluateRun,
-    getRun: hydrateRun,
+    getRun,
     listConnectors
   };
 }

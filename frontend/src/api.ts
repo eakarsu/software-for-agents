@@ -50,13 +50,15 @@ export const api = {
     connectors: () => apiFetch('/agent-workflow/connectors'),
     createConnector: (data: object) =>
       apiFetch('/agent-workflow/connectors', { method: 'POST', body: JSON.stringify(data) }),
-    ask: (data: object, idempotencyKey: string) =>
+    ask: (data: object, idempotencyKey: string, signal?: AbortSignal) =>
       apiFetch('/agent-workflow/runs', {
         method: 'POST',
         headers: { 'Idempotency-Key': idempotencyKey },
+        signal,
         body: JSON.stringify(data)
       }),
-    getRun: (id: string) => apiFetch(`/agent-workflow/runs/${id}`),
+    listRuns: (signal?: AbortSignal) => apiFetch('/agent-workflow/runs', { signal }),
+    getRun: (id: string, signal?: AbortSignal) => apiFetch(`/agent-workflow/runs/${id}`, { signal }),
     decideJob: (id: string, decision: 'approve' | 'reject', note: string) =>
       apiFetch(`/agent-workflow/jobs/${id}/decision`, {
         method: 'POST', body: JSON.stringify({ decision, note })

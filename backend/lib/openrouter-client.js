@@ -10,7 +10,8 @@ function createOpenRouterClient(options = {}) {
   const attempts = Math.max(1, Math.min(3, Number(options.attempts || 2)));
 
   return {
-    async answer({ question, documents, timeoutMs, requestId, allowAction }) {
+    async answer({ question, documents, timeoutMs, requestId, allowAction, signal }) {
+      signal?.throwIfAborted();
       if (!apiKey || !model) {
         throw new WorkflowError('MODEL_NOT_CONFIGURED', 'OPENROUTER_API_KEY and OPENROUTER_MODEL are required', 503, false);
       }
@@ -53,12 +54,16 @@ function createOpenRouterClient(options = {}) {
       let lastError;
       const overallStarted = Date.now();
       for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        signal?.throwIfAborted();
         const remainingMs = timeoutMs - (Date.now() - overallStarted);
         if (remainingMs <= 0) throw new WorkflowError('MODEL_TIMEOUT', 'Model request exceeded its latency budget', 504, true);
         const controller = new AbortController();
+        const abort = () => controller.abort(signal.reason);
+        if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
         const timer = setTimeout(() => controller.abort(), remainingMs);
+        let response;
         try {
-          const response = await fetchImpl(endpoint, {
+          response = await fetchImpl(endpoint, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${apiKey}`,
@@ -70,13 +75,21 @@ function createOpenRouterClient(options = {}) {
             body: JSON.stringify(body),
             signal: controller.signal
           });
-          const latencyMs = Date.now() - overallStarted;
+          signal?.throwIfAborted();
+          controller.signal.throwIfAborted();
           if (!response.ok) {
+            await Promise.resolve(response.body?.cancel()).catch(() => {});
+            controller.abort();
             const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
             if (retryable && attempt < attempts) continue;
             throw new WorkflowError('MODEL_UPSTREAM_FAILED', `Model provider returned ${response.status}`, 503, retryable);
           }
           const data = await response.json();
+          signal?.throwIfAborted();
+          controller.signal.throwIfAborted();
+          if (data.choices?.[0]?.message?.refusal || ['length', 'content_filter'].includes(data.choices?.[0]?.finish_reason)) {
+            throw new WorkflowError('MODEL_INCOMPLETE_RESPONSE', 'Model provider returned an incomplete or unavailable answer', 502, false);
+          }
           const raw = data.choices?.[0]?.message?.content;
           if (!raw) throw new WorkflowError('MODEL_EMPTY_RESPONSE', 'Model provider returned no content', 503, true);
           let output;
@@ -89,6 +102,8 @@ function createOpenRouterClient(options = {}) {
           if (![promptTokens, completionTokens, costUsd].every((value) => Number.isFinite(value) && value >= 0)) {
             throw new WorkflowError('MODEL_USAGE_INVALID', 'Model response omitted valid token or cost accounting', 502, false);
           }
+          const latencyMs = Date.now() - overallStarted;
+          if (latencyMs > timeoutMs) throw new WorkflowError('MODEL_TIMEOUT', 'Model request exceeded its latency budget', 504, true);
           return {
             output,
             model: data.model || model,
@@ -99,6 +114,7 @@ function createOpenRouterClient(options = {}) {
             allowAction: !!allowAction
           };
         } catch (error) {
+          if (signal?.aborted) throw signal.reason || new WorkflowError('RUN_CANCELLED', 'Agent request cancelled', 499, false);
           if (error.name === 'AbortError') {
             lastError = new WorkflowError('MODEL_TIMEOUT', 'Model request exceeded its latency budget', 504, true);
           } else {
@@ -108,7 +124,9 @@ function createOpenRouterClient(options = {}) {
           }
           if (!lastError.retryable || attempt === attempts) throw lastError;
         } finally {
+          if (response && !response.bodyUsed) await Promise.resolve(response.body?.cancel()).catch(() => {});
           clearTimeout(timer);
+          signal?.removeEventListener('abort', abort);
         }
       }
       throw lastError;

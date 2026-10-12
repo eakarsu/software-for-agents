@@ -2,7 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const { createTenantContext } = require('../middleware/tenant-context');
 const { createOpenRouterClient } = require('../lib/openrouter-client');
-const { asWorkflowError } = require('../lib/errors');
+const { asWorkflowError, WorkflowError } = require('../lib/errors');
 const { createWorkflowService } = require('../lib/workflow-service');
 
 function createAgentWorkflowRouter(options = {}) {
@@ -22,6 +22,7 @@ function createAgentWorkflowRouter(options = {}) {
   });
   const handle = (handler) => async (req, res) => {
     try { await handler(req, res); } catch (raw) {
+      if (res.destroyed || req.aborted) return;
       const error = asWorkflowError(raw);
       const body = { error: error.message, error_code: error.code, retryable: error.retryable };
       if (error.details) body.details = error.details;
@@ -58,15 +59,25 @@ function createAgentWorkflowRouter(options = {}) {
     res.status(201).json(await service.createConnector(actor(req), req.body || {}));
   }));
   router.post('/runs', handle(async (req, res) => {
-    const result = await service.ask(actor(req), {
+    const controller = new AbortController();
+    const abort = () => controller.abort(new WorkflowError('RUN_CANCELLED', 'Agent request cancelled', 499, false));
+    const close = () => { if (!res.writableFinished) abort(); };
+    req.once('aborted', abort); res.once('close', close);
+    if (req.aborted || res.destroyed) abort();
+    try {
+      const result = await service.ask(actor(req), {
       idempotencyKey: req.headers['idempotency-key'],
       question: req.body?.question,
       allowAction: req.body?.allowAction === true,
       latencyBudgetMs: req.body?.latencyBudgetMs,
-      costBudgetUsd: req.body?.costBudgetUsd
+      costBudgetUsd: req.body?.costBudgetUsd,
+      signal: controller.signal
     });
+    controller.signal.throwIfAborted();
     res.status(result.replayed ? 200 : 201).json(result);
+    } finally { req.removeListener('aborted', abort); res.removeListener('close', close); }
   }));
+  router.get('/runs', handle(async (req, res) => res.json({ runs: await service.listRuns(actor(req)) })));
   router.get('/runs/:id', handle(async (req, res) => res.json(await service.getRun(actor(req), req.params.id))));
   router.post('/jobs/:id/decision', handle(async (req, res) => {
     res.json(await service.approveJob(actor(req), req.params.id, req.body || {}));

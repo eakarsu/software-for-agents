@@ -35,7 +35,8 @@ export default function Layout() {
             </select>
           </label>
         )}
-        <nav className="mt-5">
+        <nav className="mt-5 space-y-2">
+          <NavLink to="/ai-studio" className="flex items-center gap-2 rounded-lg border border-violet-500 px-3 py-2 text-sm">AI Studio</NavLink>
           <NavLink to="/workflow" className="flex items-center gap-2 rounded-lg bg-violet-700 px-3 py-2 text-sm">
             <Bot size={16} /> Agent workflow
           </NavLink>
